@@ -4,5 +4,8 @@ module Calculator
   ) where
 
 import Calculator.Parser (parseToplevel)
-import Calculator.Syntax (Expr(Calc, Double, Error, Subst, Var))
+import Calculator.Syntax
+  ( Expr(Calc, Double, Error, Subst, Var)
+  , Op(Divide, Minus, Plus, Times)
+  )
 

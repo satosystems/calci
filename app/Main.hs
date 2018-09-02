@@ -1,6 +1,7 @@
 module Main where
 
 import Control.Monad.Trans (liftIO)
+import Debug.Trace (trace)
 import System.Console.Haskeline
   ( InputT
   , defaultSettings
@@ -11,13 +12,52 @@ import System.Console.Haskeline
 
 import Calculator
   ( Expr(Calc, Double, Error, Subst, Var)
+  , Op(Divide, Minus, Plus, Times)
   , parseToplevel
   )
 
+betaReduction :: [Expr] -> Expr -> Expr
+betaReduction vars expr@(Calc op lhs rhs) = trace ("001: " ++ show expr) $
+  case (lhs, rhs) of
+    (Error _, _) -> lhs
+    (_, Error _) -> rhs
+    (Var name, _) -> case lookupVar name vars of
+      Nothing -> Error $ name ++ " is not defined"
+      Just formula -> betaReduction vars $ Calc op formula rhs
+    (_, Var name) -> case lookupVar name vars of
+      Nothing -> Error $ name ++ " is not defined"
+      Just formula -> betaReduction vars $ Calc op lhs formula
+    (Calc {}, _) -> betaReduction vars $ Calc op (betaReduction vars lhs) rhs
+    (_, Calc {}) -> betaReduction vars $ Calc op lhs (betaReduction vars rhs)
+    (Double l, Double r) -> case op of
+      Plus -> Double (l + r)
+      Minus -> Double (l - r)
+      Times -> Double (l * r)
+      Divide -> Double (l / r)
+betaReduction _ expr = trace ("002: " ++ show expr) expr
+
+lookupVar :: String -> [Expr] -> Maybe Expr
+lookupVar _ [] = Nothing
+lookupVar name (Subst (Var name') formula:vars)
+  | name == name' = Just formula
+  | otherwise = lookupVar name vars
+
 eval :: [Expr] -> Expr -> IO [Expr]
-eval vars expr = do
-  print (vars, expr)
+eval vars expr@(Error msg) = trace ("101: " ++ show expr) $
+  putStrLn msg >> return vars
+eval vars expr@Calc {} = trace ("102: " ++ show expr) $
+  case betaReduction vars expr of
+    Error msg -> putStrLn msg >> return vars
+    Double value -> print value >> return vars
+eval vars expr@(Double value) = trace ("103: " ++ show expr) $ do
+  print value
   return vars
+eval vars expr@(Subst (Var name) formula) = trace ("104: " ++ show expr) $
+  return $ Subst (Var name) (betaReduction vars formula):vars
+eval vars expr@(Var name) = trace ("105: " ++ show expr) $
+  case lookupVar name vars of
+    Nothing -> eval vars $ Error $ name ++ " is not defined"
+    Just formula -> eval vars formula
 
 process :: [Expr] -> String -> IO [Expr]
 process vars line =
