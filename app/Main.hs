@@ -1,7 +1,6 @@
 module Main where
 
 import Control.Monad.Trans (liftIO)
-import Debug.Trace (trace)
 import System.Console.Haskeline
   ( InputT
   , defaultSettings
@@ -17,7 +16,7 @@ import Calculator
   )
 
 betaReduction :: [Expr] -> Expr -> Expr
-betaReduction vars expr@(Calc op lhs rhs) = trace ("001: " ++ show expr) $
+betaReduction vars expr@(Calc op lhs rhs) =
   case (lhs, rhs) of
     (Error _, _) -> lhs
     (_, Error _) -> rhs
@@ -34,7 +33,7 @@ betaReduction vars expr@(Calc op lhs rhs) = trace ("001: " ++ show expr) $
       Minus -> Double (l - r)
       Times -> Double (l * r)
       Divide -> Double (l / r)
-betaReduction _ expr = trace ("002: " ++ show expr) expr
+betaReduction _ expr = expr
 
 lookupVar :: String -> [Expr] -> Maybe Expr
 lookupVar _ [] = Nothing
@@ -43,18 +42,18 @@ lookupVar name (Subst (Var name') formula:vars)
   | otherwise = lookupVar name vars
 
 eval :: [Expr] -> Expr -> IO [Expr]
-eval vars expr@(Error msg) = trace ("101: " ++ show expr) $
+eval vars expr@(Error msg) =
   putStrLn msg >> return vars
-eval vars expr@Calc {} = trace ("102: " ++ show expr) $
+eval vars expr@Calc {} =
   case betaReduction vars expr of
     Error msg -> putStrLn msg >> return vars
     Double value -> print value >> return vars
-eval vars expr@(Double value) = trace ("103: " ++ show expr) $ do
+eval vars expr@(Double value) = do
   print value
   return vars
-eval vars expr@(Subst (Var name) formula) = trace ("104: " ++ show expr) $
+eval vars expr@(Subst (Var name) formula) =
   return $ Subst (Var name) (betaReduction vars formula):vars
-eval vars expr@(Var name) = trace ("105: " ++ show expr) $
+eval vars expr@(Var name) =
   case lookupVar name vars of
     Nothing -> eval vars $ Error $ name ++ " is not defined"
     Just formula -> eval vars formula
